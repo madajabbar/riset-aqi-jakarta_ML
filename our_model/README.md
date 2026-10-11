@@ -14,6 +14,8 @@ python our_model/train.py --smoke                       # quick sanity (3 ep)
 ```
 Colab T4: `git clone` repo → `!pip install EMD-signal scikit-learn pandas matplotlib` → jalankan `train.py --weather --epochs 100` (EMD jalan di CPU, ±10–20 mnt untuk 100k jam).
 
+Sapuan horizon × seed: `our_model/kaggle_horizon_seeds.ipynb` (4 horizon × 3 seed, `--leak-safe`, ±50 mnt/run di T4; nama checkpoint memuat `ow<horizon>-s<seed>` supaya antar-run tidak saling me-resume).
+
 ## Protokol
 - Split **tiga fase kronologis 70/15/15** (train/validasi/test); `TRAIN_FRAC`/`VAL_FRAC` di `train.py`.
 - Per-IMF: input = window **IMF itu sendiri** (+ kanal cuaca), target = window IMF yang sama. Transformer-BiLSTM vs LinearRegression rujukan diadu, pemenang dipilih dari **blok validasi** saja.

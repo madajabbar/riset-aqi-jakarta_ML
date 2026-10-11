@@ -175,7 +175,12 @@ def main():
     if a.smoke:
         tag += "_smoke"  # run pendek JANGAN berbagi checkpoint dengan run penuh
     # jendela tanggal ikut ke nama: uji cepat 1 bulan tidak boleh di-resume run penuh
-    run_id = f"{tag}-{a.start or 'all'}_{a.end or 'all'}-exo{a.exo_scale}" + ("-leaksafe" if a.leak_safe else "")
+    # Setiap tuas yang mengubah hasil WAJIB masuk nama checkpoint (seed, horizon).
+    # Tanpa ini, run horizon/seed berikutnya cuma "[RESUMED]" hasil run sebelumnya.
+    run_id = (f"{tag}-{a.start or 'all'}_{a.end or 'all'}-exo{a.exo_scale}"
+              + ("-leaksafe" if a.leak_safe else "")
+              + (f"-ow{a.horizon}" if a.horizon != 1 else "")
+              + (f"-s{a.seed}" if a.seed else ""))
     CKPT_DIR = Path(__file__).resolve().parent / "results" / "checkpoints" / f"{run_id}-v2"
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
 

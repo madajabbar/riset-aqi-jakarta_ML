@@ -19,7 +19,8 @@ Colab T4: `git clone` repo → `!pip install EMD-signal scikit-learn pandas matp
 - Per-IMF: input = window **IMF itu sendiri** (+ kanal cuaca), target = window IMF yang sama. Transformer-BiLSTM vs LinearRegression rujukan diadu, pemenang dipilih dari **blok validasi** saja.
 - Fusi BiLSTM dilatih atas **prediksi out-of-sample blok validasi** (+ cuaca) → AQI, lalu diterapkan ke blok test — distribusi input train & test setara.
 - Metrik RMSE/MAE/MAPE hanya dari blok test.
-- Bawaan rujukan yang **tidak** diubah (ditulis sebagai limitasi di paper): MinMaxScaler(-1,1) + EMD dihitung atas seluruh seri sebelum split; statistik cuaca (mean/std) + interpolasi juga atas seluruh periode. Varian bebas-leakage = pekerjaan RQ1 berikutnya.
+- Bawaan rujukan yang **tidak** diubah di jalur default (ditulis sebagai limitasi di paper): MinMaxScaler(-1,1) + EMD dihitung atas seluruh seri sebelum split; statistik cuaca (mean/std) + interpolasi juga atas seluruh periode.
+- **`--leak-safe` = varian bebas-leakage (RQ1).** Scaler + statistik cuaca hanya dari blok train (70% pertama); EMD dihitung **per blok** (train/val/test) dengan mode disejajarkan dari ujung tren (blok pendek menghasilkan mode lebih sedikit: 13/11/11 → dipotong ke yang terpendek); window tiap blok dibangun dari blok itu sendiri. Checkpoint & CSV memuat penanda `-leaksafe`, jadi tidak menabrak run protokol rujukan.
 - Target default `us_aqi`, horizon 1 jam (`--horizon` untuk 5–24 jam).
 
 ## Riwayat perbaikan 10 Okt 2026 (audit eksternal, diverifikasi langsung di kode)

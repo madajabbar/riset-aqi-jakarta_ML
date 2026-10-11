@@ -32,17 +32,25 @@ def load_merged(data_dir):
 WEATHER_COLS = ["temp", "rh", "wind_speed", "pressure", "precip", "swr", "wind_sin", "wind_cos"]
 
 
-def make_series(df, start=None, end=None, target="us_aqi"):
+def make_series(df, start=None, end=None, target="us_aqi", fit_frac=None):
+    """fit_frac=None -> protokol rujukan (scaler + statistik cuaca atas SELURUH seri).
+    fit_frac=0.70 -> bebas-leakage: keduanya hanya dari fraksi awal seri (blok train)."""
     if start:
         df = df[df.index >= start]
     if end:
         df = df[df.index < end]
     y = df[target].values.astype(np.float64)
-    scaler = MinMaxScaler(feature_range=(-1, 1))
-    y = scaler.fit_transform(y.reshape(-1, 1)).reshape(-1)
+    if fit_frac is None:
+        scaler = MinMaxScaler(feature_range=(-1, 1))
+        y = scaler.fit_transform(y.reshape(-1, 1)).reshape(-1)
+    else:
+        scaler = MinMaxScaler(feature_range=(-1, 1)).fit(y[:int(len(y) * fit_frac)].reshape(-1, 1))
+        y = scaler.transform(y.reshape(-1, 1)).reshape(-1)
     w = df[WEATHER_COLS].values.astype(np.float64)
     ok = ~np.isnan(w).any(1)
-    mu, sd = w[ok].mean(0), w[ok].std(0) + 1e-8
+    wok = w[ok]
+    n_fit = len(wok) if fit_frac is None else int(len(wok) * fit_frac)
+    mu, sd = wok[:n_fit].mean(0), wok[:n_fit].std(0) + 1e-8
     w = (w - mu) / sd
     keep = ok
     return y[keep], w[keep], scaler, df[keep]

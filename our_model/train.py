@@ -53,6 +53,8 @@ def parse_args():
     p.add_argument("--imfs", type=int, default=12)
     p.add_argument("--epochs", type=int, default=100)
     p.add_argument("--fusion-epochs", type=int, default=1000)
+    p.add_argument("--fusion-restarts", type=int, default=3,
+                   help="usahakan train fusion layer dari N init berbeda, simpan val terbaik (lawan local minimum)")
     p.add_argument("--batch-size", type=int, default=64)
     p.add_argument("--lr", type=float, default=0.001)
     p.add_argument("--weather", action="store_true", help="enable exogenous weather channels (our model)")
@@ -293,18 +295,26 @@ def main():
         fusion = modelmod.LstmRNN(n_imf + K).to(device)
         fusion.load_state_dict(torch.load(FUSION_CKPT, map_location=device))
     else:
-        print("\nTraining Fusion Layer from scratch...")
-        fusion = modelmod.LstmRNN(n_imf + K).to(device)
-        fopt = torch.optim.Adam(fusion.parameters(), lr=1e-2)
+        print("\nTraining Fusion Layer from scratch (multi-restart)...")
         ep = 50 if a.smoke else a.fusion_epochs
-        for e in range(ep):
-            out = fusion(fx_tr)
-            loss = criterion(out, fy_tr)
-            fopt.zero_grad(); loss.backward(); fopt.step()
-            if (e + 1) % max(1, ep // 5) == 0:
-                print(f"fusion ep{e+1} loss {loss.item():.5f}")
-        torch.save(fusion.state_dict(), FUSION_CKPT)
-        print("Fusion model saved to checkpoint.")
+        n_restart = 1 if a.smoke else a.fusion_restarts
+        best_state, best_loss = None, float("inf")
+        for r in range(n_restart):
+            set_seed(a.seed + 1013 * (r + 1))  # init beda per restart
+            fusion = modelmod.LstmRNN(n_imf + K).to(device)
+            fopt = torch.optim.Adam(fusion.parameters(), lr=1e-2)
+            for e in range(ep):
+                out = fusion(fx_tr)
+                loss = criterion(out, fy_tr)
+                fopt.zero_grad(); loss.backward(); fopt.step()
+                if (e + 1) % max(1, ep // 5) == 0:
+                    print(f"fusion restart{r+1} ep{e+1} loss {loss.item():.5f}")
+            if loss.item() < best_loss:
+                best_loss = loss.item(); best_state = fusion.state_dict()
+        fusion = modelmod.LstmRNN(n_imf + K).to(device)
+        fusion.load_state_dict(best_state)
+        torch.save(best_state, FUSION_CKPT)
+        print(f"Fusion best restart saved (loss {best_loss:.5f}).")
 
     fusion.eval()
     with torch.no_grad():
